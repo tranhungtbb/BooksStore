@@ -23,11 +23,12 @@ using Volo.Abp.AspNetCore.Mvc.UI.Bundling;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Shared;
 using Volo.Abp.AspNetCore.Serilog;
 using Volo.Abp.Autofac;
-using Volo.Abp.Localization;
 using Volo.Abp.Modularity;
 using Volo.Abp.Swashbuckle;
 using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.VirtualFileSystem;
+using HDs.BookStore.OpenIddict;
+using static OpenIddict.Server.OpenIddictServerEvents;
 
 namespace HDs.BookStore;
 
@@ -46,6 +47,15 @@ public class BookStoreHttpApiHostModule : AbpModule
 {
     public override void PreConfigureServices(ServiceConfigurationContext context)
     {
+        PreConfigure<OpenIddictServerBuilder>(builder =>
+        {
+            builder.SetAuthorizationCodeLifetime(TimeSpan.FromMinutes(30));
+            builder.SetAccessTokenLifetime(TimeSpan.FromMinutes(30));
+            builder.SetIdentityTokenLifetime(TimeSpan.FromMinutes(30));
+            builder.SetRefreshTokenLifetime(TimeSpan.FromDays(14));
+        });
+
+
         PreConfigure<OpenIddictBuilder>(builder =>
         {
             builder.AddValidation(options =>
@@ -53,8 +63,21 @@ public class BookStoreHttpApiHostModule : AbpModule
                 options.AddAudiences("BookStore");
                 options.UseLocalServer();
                 options.UseAspNetCore();
+                options.AddEventHandler(OpenIdSecurityValidator.SecurityValidator.Descriptor);
+            });
+
+            builder.AddServer(options =>
+            {
+                options.AddEventHandler<ValidateTokenRequestContext>(builder =>
+                   builder.UseInlineHandler(context =>
+                   {
+                       // todo handler signIn 
+                       return default;
+                   }));
             });
         });
+
+
     }
 
     public override void ConfigureServices(ServiceConfigurationContext context)
